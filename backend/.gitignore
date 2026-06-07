@@ -1,0 +1,9 @@
+# Large zarr stores and trained models are not checked in (CLAUDE.md §2)
+data/
+models/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
