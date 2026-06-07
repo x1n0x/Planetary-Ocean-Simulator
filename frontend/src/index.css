@@ -1,29 +1,26 @@
 :root {
   color-scheme: dark;
 
-  /* Abyssal Observatory palette */
-  --abyss-0: #03070e;
-  --abyss-1: #060d18;
-  --abyss-2: #0a1626;
-  --abyss-3: #0e1d31;
-  --panel: rgba(10, 21, 36, 0.66);
-  --panel-solid: #0a1525;
-  --hair: rgba(120, 180, 220, 0.1);
-  --hair-bright: rgba(120, 190, 230, 0.22);
+  /* Refined dark — flat charcoal, no glow */
+  --bg: #0a0c0f;
+  --surface: #101319;
+  --surface-2: #141821;
+  --surface-hover: #161b24;
+  --border: #1e232b;
+  --border-strong: #2a313b;
 
-  --text: #b9cadd;
-  --text-dim: #61788f;
-  --text-bright: #eaf3ff;
+  --text: #e6e8eb;
+  --text-dim: #9aa1ab;
+  --text-faint: #636a74;
 
-  --cyan: #49d8e2; /* bioluminescent accent */
-  --cyan-soft: #7fe6ee;
-  --cyan-glow: rgba(73, 216, 226, 0.45);
-  --amber: #f5b042;
-  --rose: #e8607a;
+  --accent: #4ea7c4; /* muted teal-blue, used sparingly */
+  --accent-soft: rgba(78, 167, 196, 0.14);
+  --danger: #df6076;
+  --warn: #d6a45c;
 
-  --font-display: 'Instrument Serif', Georgia, serif;
   --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --radius: 10px;
 }
 
 * {
@@ -38,46 +35,30 @@ body,
 }
 
 body {
-  font-family: var(--font-sans);
-  font-weight: 400;
+  font: 14px/1.5 var(--font-sans);
   color: var(--text);
-  background-color: var(--abyss-0);
-  /* layered deep-water glow */
-  background-image:
-    radial-gradient(
-      120% 90% at 18% 12%,
-      rgba(17, 47, 74, 0.55) 0%,
-      transparent 55%
-    ),
-    radial-gradient(
-      90% 80% at 92% 88%,
-      rgba(12, 38, 52, 0.45) 0%,
-      transparent 60%
-    ),
-    radial-gradient(60% 60% at 50% 50%, #061120 0%, #03070e 100%);
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* slim instrument scrollbar */
 ::-webkit-scrollbar {
-  width: 9px;
+  width: 10px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(73, 216, 226, 0.18);
+  background: #20262f;
   border-radius: 999px;
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(73, 216, 226, 0.35);
+  background: #2c3540;
   background-clip: padding-box;
 }
 
 ::selection {
-  background: var(--cyan-glow);
-  color: #021018;
+  background: var(--accent-soft);
 }

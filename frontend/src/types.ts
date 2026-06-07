@@ -26,3 +26,25 @@ export interface Scenario {
 export interface LandMask {
   chi: number[][] // (lat, lon) 0 = ocean, 1 = land
 }
+
+export interface EnergySpike {
+  spike: boolean
+  severity: number
+  delta?: number
+  baseline?: number
+}
+
+export interface AnomalyResult {
+  threshold_mask: boolean[][]
+  z_scores: number[][]
+  isolation_scores: number[][]
+  composite_mask: boolean[][]
+  energy_spike: EnergySpike
+  anomaly_count: number
+}
+
+export interface EnergySeries {
+  E_k: number[]
+  E_p: number[]
+  spikes: number[]
+}

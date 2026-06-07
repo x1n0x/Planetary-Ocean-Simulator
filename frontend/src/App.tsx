@@ -4,10 +4,11 @@ import { Globe } from './components/Globe'
 import { OmegaBadge } from './components/OmegaBadge'
 import { Timeline } from './components/Timeline'
 import { ControlPanel, type ControlValues } from './components/ControlPanel'
+import { EnergyChart } from './components/EnergyChart'
 import { useLandMask } from './hooks/useLandMask'
 import { nearestScenario, EARTH_OMEGA } from './utils/scenarios'
-import { getScenarios } from './api'
-import type { Scenario } from './types'
+import { getScenarios, getEnergy } from './api'
+import type { Scenario, EnergySeries } from './types'
 import './App.css'
 
 // Frames are prebuilt, so playback is just a layer-visibility toggle — we can
@@ -70,12 +71,34 @@ function App() {
   const [buffered, setBuffered] = useState(0)
   const buffering = active != null && buffered < total
 
-  // Reset the timeline when the scenario switches.
+  // Phase 3 overlays.
+  const [showAnomaly, setShowAnomaly] = useState(false)
+  const [anomalyCount, setAnomalyCount] = useState<number | null>(null)
+  const [showVectors, setShowVectors] = useState(false)
+
+  // Full energy series for the chart, fetched once per scenario.
+  const [energy, setEnergy] = useState<EnergySeries | null>(null)
   useEffect(() => {
+    if (!active) return
+    let cancelled = false
+    getEnergy(active)
+      .then((e) => !cancelled && setEnergy(e))
+      .catch((err) => console.error('[energy]', err))
+    return () => {
+      cancelled = true
+    }
+  }, [active])
+
+  // Reset transient state the moment the scenario switches — React's
+  // "adjust state during render" pattern, no effect required.
+  const [prevActive, setPrevActive] = useState(active)
+  if (active !== prevActive) {
+    setPrevActive(active)
     setT(0)
     setPlaying(false)
     setBuffered(0)
-  }, [active])
+    setEnergy(null)
+  }
 
   // Auto-play: advance t, looping at the end.
   useEffect(() => {
@@ -102,22 +125,31 @@ function App() {
           total={total}
           t={t}
           chi={chi}
+          showAnomaly={showAnomaly}
+          showVectors={showVectors}
           onProgress={setBuffered}
+          onAnomalyCount={setAnomalyCount}
         />
 
-        {/* atmospheric depth + grain over the globe */}
+        {/* subtle edge darkening so the globe sits in space */}
         <div className="globe-vignette" aria-hidden />
-        <div className="globe-grain" aria-hidden />
 
         <header className="hud hud-top">
           <div className="wordmark">
-            <span className="wordmark-eyebrow">◇ Observatory</span>
             <span className="wordmark-title">Planetary Ocean</span>
           </div>
           <div className="hud-right">
+            {showAnomaly && anomalyCount != null && (
+              <span className="anomaly-chip">
+                <span className="anomaly-dot" />
+                {anomalyCount} anomalous
+              </span>
+            )}
             <span className={`live ${buffering ? 'sync' : ''}`}>
               <span className="live-dot" />
-              {buffering ? `buffering ${buffered}/${total}` : 'live feed'}
+              <span className="live-text">
+                {buffering ? `Buffering ${buffered}/${total}` : 'Live feed'}
+              </span>
             </span>
             <OmegaBadge omega={omega} />
           </div>
@@ -174,25 +206,70 @@ function App() {
         </section>
 
         <section className="console-section">
+          <div className="eyebrow">Analysis</div>
+          <button
+            className={`toggle ${showAnomaly ? 'on' : ''}`}
+            onClick={() => setShowAnomaly((a) => !a)}
+          >
+            <span className="toggle-track">
+              <span className="toggle-knob" />
+            </span>
+            <span className="toggle-label">Anomaly overlay</span>
+            {showAnomaly && anomalyCount != null && (
+              <span className="toggle-count">{anomalyCount}</span>
+            )}
+          </button>
+
+          <button
+            className={`toggle ${showVectors ? 'on' : ''}`}
+            onClick={() => setShowVectors((s) => !s)}
+          >
+            <span className="toggle-track">
+              <span className="toggle-knob" />
+            </span>
+            <span className="toggle-label">Current vectors</span>
+          </button>
+
+          {energy ? (
+            <div className="chart-wrap">
+              <EnergyChart
+                E_k={energy.E_k}
+                E_p={energy.E_p}
+                spikeTimes={energy.spikes}
+                t={t}
+                total={total}
+              />
+            </div>
+          ) : (
+            <div className="chart-skeleton">loading energy…</div>
+          )}
+        </section>
+
+        <section className="console-section">
           <div className="eyebrow">
             Scenario library <span className="count">{scenarios.length}</span>
           </div>
           <ul className="scenario-list">
-            {scenarios.map((s) => (
-              <li key={s.id}>
-                <button
-                  className={s.id === active ? 'active' : ''}
-                  onClick={() => selectScenario(s)}
-                >
-                  <span className="scen-id">{s.id}</span>
-                  <span className="scen-meta mono">
-                    {Math.round(s.moon_dist_km / 1000)}k · Ω
-                    {(s.omega_rad_s / EARTH_OMEGA).toFixed(1)} ·{' '}
-                    {s.temperature_C}°
-                  </span>
-                </button>
-              </li>
-            ))}
+            {scenarios.map((s) => {
+              const rel = s.omega_rad_s / EARTH_OMEGA
+              const tone = rel > 2 ? 'hot' : rel < 0.3 ? 'cold' : 'calm'
+              return (
+                <li key={s.id}>
+                  <button
+                    className={s.id === active ? 'active' : ''}
+                    onClick={() => selectScenario(s)}
+                  >
+                    <span className={`scen-omega ${tone}`}>
+                      Ω {rel.toFixed(1)}×
+                    </span>
+                    <span className="scen-dims mono">
+                      {Math.round(s.moon_dist_km / 1000)}k km · {s.temperature_C}
+                      °C
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
           </ul>
         </section>
 
