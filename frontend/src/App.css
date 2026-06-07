@@ -1,0 +1,73 @@
+.app {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+.globe-pane {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px;
+  text-align: center;
+  color: #7c8aa0;
+}
+
+.sidebar {
+  width: 340px;
+  flex-shrink: 0;
+  padding: 20px;
+  background: #0b1626;
+  border-left: 1px solid #16263d;
+  overflow-y: auto;
+}
+
+.sidebar h1 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #eaf1fb;
+}
+
+.muted {
+  margin: 0 0 16px;
+  color: #7c8aa0;
+}
+
+.small {
+  font-size: 12px;
+}
+
+.error {
+  color: #e87a7a;
+}
+
+.card {
+  margin-bottom: 12px;
+  padding: 12px;
+  background: #0f1d31;
+  border: 1px solid #1b2d47;
+  border-radius: 8px;
+}
+
+.card-title {
+  margin-bottom: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7d96;
+}
+
+.mono {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 13px;
+  color: #dfe7f2;
+  word-break: break-all;
+}

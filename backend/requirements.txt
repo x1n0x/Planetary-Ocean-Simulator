@@ -1,0 +1,8 @@
+# Planetary Ocean Simulator — backend (Vlad)
+# Python 3.11+
+fastapi
+uvicorn[standard]
+zarr<3            # §13 uses store.create_dataset() — the zarr v2 API
+numpy
+scikit-learn
+joblib
