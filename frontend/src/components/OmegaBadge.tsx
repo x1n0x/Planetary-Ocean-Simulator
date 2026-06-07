@@ -8,9 +8,11 @@ export function OmegaBadge({ omega }: { omega: number }) {
   return (
     <div className={`omega-badge ${tone}`}>
       <span className="omega-dot" />
-      <span className="omega-sym">Ω</span>
-      <span className="omega-val">{rel.toFixed(1)}×</span>
-      <span className="omega-unit">Earth</span>
+      <span className="omega-body">
+        <span className="omega-sym">Ω</span>
+        <span className="omega-val">{rel.toFixed(1)}×</span>
+        <span className="omega-unit">Earth</span>
+      </span>
     </div>
   )
 }

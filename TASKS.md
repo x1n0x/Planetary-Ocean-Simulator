@@ -72,13 +72,13 @@ curl "localhost:8000/state?scenario=scenario_test_moon384km_omega1x_temp15&t=0"
 > **Цель:** реальная физика видна, первые детекторы аномалий работают  
 > **Дедлайн:** Week 5–6
 
-- [ ] **[V]** Заменить fake zarr на реальный от Кирилла — проверить соответствие осей координат (CLAUDE.md §4.4)
-- [ ] **[V]** Velocity vector layer — `buildVectorPoints()`, стрелки на ocean cells, land cells пропускаются
-- [ ] **[V]** `detect_threshold()` в `services/anomaly.py` с wet mask (chi < 0.5)
-- [ ] **[V]** `GET /anomaly` endpoint подключён
-- [ ] **[V]** `anomalyToTexture()` — красный оверлей на аномальных ячейках
-- [ ] **[V]** Plotly `EnergyChart` в сайдбаре — E_k и E_p по времени
-- [ ] **[V]** `detect_energy_spike()` — красные X-маркеры на спайках энергии
+- [ ] **[V]** Заменить fake zarr на реальный от Кирилла — проверить соответствие осей координат (CLAUDE.md §4.4) ⏳ ждём zarr
+- [x] **[V]** Velocity vector layer — стрелки течений на ocean cells, land cells пропускаются (Cesium PolylineCollection)
+- [x] **[V]** `detect_threshold()` в `services/anomaly.py` с wet mask (chi < 0.5)
+- [x] **[V]** `GET /anomaly` endpoint подключён
+- [x] **[V]** `anomalyToTexture()` — красный оверлей на аномальных ячейках
+- [x] **[V]** `EnergyChart` в сайдбаре — E_k и E_p по времени (свой SVG-спарклайн вместо Plotly)
+- [x] **[V]** `detect_energy_spike()` — красные X-маркеры на спайках энергии
 - [ ] **[K]** Volume penalization χ работает — холмы выше уровня воды отражают волны
 - [ ] **[K]** `chi.zarr` включён в output — Vlad рендерит terrain
 - [ ] **[K]** Несколько сценариев с разными Ω — 0.1×, 1×, 3×, 5× Earth

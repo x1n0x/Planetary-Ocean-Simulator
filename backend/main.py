@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from services import zarr_reader
-from routers import scenarios, state, land, anomaly
+from routers import scenarios, state, land, anomaly, energy
 
 app = FastAPI(title="Ocean Simulator API")
 
@@ -33,3 +33,4 @@ app.include_router(scenarios.router)
 app.include_router(state.router)
 app.include_router(land.router)
 app.include_router(anomaly.router)
+app.include_router(energy.router)
