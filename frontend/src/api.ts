@@ -12,8 +12,21 @@ async function getJson<T>(path: string): Promise<T> {
 
 export const getScenarios = () => getJson<Scenario[]>('/scenarios')
 
-export const getState = (scenario: string, t: number) =>
-  getJson<OceanState>(`/state?scenario=${encodeURIComponent(scenario)}&t=${t}`)
+// /state is immutable for a given (scenario, t) — cache responses so playback
+// loops and re-scrubs never re-hit the network.
+const stateCache = new Map<string, OceanState>()
+
+export function getState(scenario: string, t: number): Promise<OceanState> {
+  const key = `${scenario}:${t}`
+  const hit = stateCache.get(key)
+  if (hit) return Promise.resolve(hit)
+  return getJson<OceanState>(
+    `/state?scenario=${encodeURIComponent(scenario)}&t=${t}`,
+  ).then((d) => {
+    stateCache.set(key, d)
+    return d
+  })
+}
 
 // Static per scenario — fetch once, cache client-side (CLAUDE.md §5.3).
 export const getLand = (scenario: string) =>
