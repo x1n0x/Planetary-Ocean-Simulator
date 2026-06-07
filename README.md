@@ -29,7 +29,8 @@ The anomaly detector highlights when the ocean enters an unusual state.
 
 ## Demo
 
-> *Screenshots / GIF here once MVP is running*
+<img width="1529" height="1050" alt="image" src="https://github.com/user-attachments/assets/321e1058-3d55-4a69-8b1d-f54ce70bd15d" />
+
 
 ---
 
