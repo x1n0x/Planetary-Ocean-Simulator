@@ -3,17 +3,45 @@ import * as Cesium from 'cesium'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 
 import { getState, getAnomaly } from '../api'
+import type { Scenario } from '../types'
 import {
   etaToTexture,
   chiToTexture,
   anomalyToTexture,
   imageDataToDataUrl,
 } from '../utils/textures'
+import {
+  buildMeshTemplate,
+  displace,
+  etaToWaveCanvas,
+  frameEtaScale,
+  makeWavePrimitives,
+  nodePixelSize,
+  MESH_NODE_COLOR,
+  TARGET_PEAK,
+  BASE_OFFSET,
+  WIRE_LIFT,
+  type MeshTemplate,
+} from '../utils/waveMesh'
 
 // Whole-globe extent — every scenario spans the full sphere (CLAUDE.md §4.4).
 const GLOBE_RECT = Cesium.Rectangle.fromDegrees(-180, -90, 180, 90)
 // Idle spin, paused on interaction.
 const SPIN_RATE = 0.003
+
+// Sub-lunar longitude (deg) at timestep t — the same kinematics as the physics
+// solver (tidal_swe.py): the sub-lunar point regresses at Ω_planet − n_moon,
+// with n_moon from Kepler for the scenario's moon distance. lon0 = 0, lat = 0
+// (the primary moon is equatorial in every scenario).
+const G_GRAV = 6.674e-11
+const M_PLANET = 5.972e24
+function subLunarLon(meta: Scenario, t: number): number {
+  const d = meta.moon_dist_km * 1000
+  const nMoon = Math.sqrt((G_GRAV * M_PLANET) / d ** 3)
+  const omegaSub = meta.omega_rad_s - nMoon
+  const lam = Cesium.Math.toDegrees(-omegaSub * t * meta.dt_seconds)
+  return ((((lam + 180) % 360) + 360) % 360) - 180
+}
 
 async function makeLayer(
   viewer: Cesium.Viewer,
@@ -33,6 +61,8 @@ export function Globe({
   chi,
   showAnomaly = false,
   showVectors = false,
+  showMesh = false,
+  meta = null,
   onProgress,
   onAnomalyCount,
 }: {
@@ -42,6 +72,8 @@ export function Globe({
   chi: number[][] | null
   showAnomaly?: boolean
   showVectors?: boolean
+  showMesh?: boolean
+  meta?: Scenario | null
   onProgress?: (built: number) => void
   onAnomalyCount?: (count: number | null) => void
 }) {
@@ -57,6 +89,23 @@ export function Globe({
   const shownRef = useRef<Cesium.ImageryLayer | null>(null)
   const anomalySeqRef = useRef(0)
   const vectorsSeqRef = useRef(0)
+  // 3D wave mesh (plexus) state — see utils/waveMesh.ts
+  const meshFillRef = useRef<Cesium.Primitive | null>(null)
+  const meshWireRef = useRef<Cesium.Primitive | null>(null)
+  const meshNodesRef = useRef<Cesium.PointPrimitiveCollection | null>(null)
+  const meshTemplateRef = useRef<MeshTemplate | null>(null)
+  const maxAbsEtaRef = useRef(0) // running per-scenario |eta| max → exaggeration
+  const meshSeqRef = useRef(0)
+  const meshModeRef = useRef(false) // read by showFrame: mesh hides the heatmap
+  // moon direction indicator: arrow + dot + label at the sub-lunar point
+  const moonRef = useRef<{
+    lines: Cesium.PolylineCollection
+    arrow: Cesium.Polyline
+    points: Cesium.PointPrimitiveCollection
+    dot: Cesium.PointPrimitive
+    labels: Cesium.LabelCollection
+    label: Cesium.Label
+  } | null>(null)
   // latest t, for the async prebuild loop to know which frame to reveal
   const tRef = useRef(t)
   useEffect(() => {
@@ -70,7 +119,8 @@ export function Globe({
     if (!layer) return // not built yet — keep the previous frame on screen
     if (shownRef.current && shownRef.current !== layer)
       shownRef.current.show = false
-    layer.show = true
+    // mesh mode renders eta as 3D geometry — keep the flat heatmap hidden
+    layer.show = !meshModeRef.current
     shownRef.current = layer
     // stacking order: eta (bottom) → land → anomaly (top)
     if (landLayerRef.current)
@@ -85,6 +135,9 @@ export function Globe({
 
     const viewer = new Cesium.Viewer(containerRef.current, {
       baseLayer: false, // no default Ion imagery / token
+      // 3D only: skips the splitLongitude pass in the primitive pipeline,
+      // which would otherwise reprocess the wave mesh on every rebuild.
+      scene3DOnly: true,
       terrainProvider: new Cesium.EllipsoidTerrainProvider(),
       baseLayerPicker: false,
       navigationHelpButton: false,
@@ -132,6 +185,11 @@ export function Globe({
       anomalyLayerRef.current = null
       vectorsRef.current = null
       arrowMatRef.current = null
+      meshFillRef.current = null // primitives destroyed with the viewer
+      meshWireRef.current = null
+      meshNodesRef.current = null
+      meshTemplateRef.current = null
+      moonRef.current = null
       frames.clear()
       shownRef.current = null
     }
@@ -170,6 +228,10 @@ export function Globe({
     )
     framesRef.current.clear()
     shownRef.current = null
+    // per-scenario mesh state: grid template depends on chi, exaggeration on
+    // this scenario's eta range
+    meshTemplateRef.current = null
+    maxAbsEtaRef.current = 0
     onProgress?.(0)
 
     ;(async () => {
@@ -178,6 +240,11 @@ export function Globe({
         try {
           const s = await getState(scenario, i)
           if (cancelled || viewer.isDestroyed()) return
+          // feed the mesh exaggeration normalizer (cheap O(grid) pass)
+          maxAbsEtaRef.current = Math.max(
+            maxAbsEtaRef.current,
+            frameEtaScale(s.eta),
+          )
           const layer = await makeLayer(
             viewer,
             // ±0.5 m so the ~0.3 m test tide is visible.
@@ -210,6 +277,175 @@ export function Globe({
   useEffect(() => {
     showFrame(t)
   }, [t])
+
+  // --- 3D wave mesh: displaced triangulated surface, rebuilt per frame ---
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+    meshModeRef.current = showMesh
+    const scene = viewer.scene
+
+    const clearMesh = () => {
+      if (viewer.isDestroyed()) return
+      if (meshFillRef.current) {
+        scene.primitives.remove(meshFillRef.current)
+        meshFillRef.current = null
+      }
+      if (meshWireRef.current) {
+        scene.primitives.remove(meshWireRef.current)
+        meshWireRef.current = null
+      }
+      if (meshNodesRef.current && !meshNodesRef.current.isDestroyed())
+        meshNodesRef.current.removeAll()
+    }
+
+    if (!showMesh || !scenario || !chi) {
+      clearMesh()
+      showFrame(tRef.current) // restore the flat heatmap
+      return
+    }
+
+    // mesh replaces the heatmap — hide the currently shown frame layer
+    if (shownRef.current) shownRef.current.show = false
+
+    let templateFresh = false
+    if (!meshTemplateRef.current) {
+      meshTemplateRef.current = buildMeshTemplate(chi)
+      templateFresh = true
+    }
+    const tpl = meshTemplateRef.current
+
+    const seq = ++meshSeqRef.current
+    let cancelled = false
+    const stale = () =>
+      cancelled || viewer.isDestroyed() || seq !== meshSeqRef.current
+
+    getState(scenario, t)
+      .then((s) => {
+        if (stale()) return
+        // exaggeration: normalize this scenario's typical |eta| to TARGET_PEAK
+        maxAbsEtaRef.current = Math.max(
+          maxAbsEtaRef.current,
+          frameEtaScale(s.eta),
+        )
+        const vAbs = Math.max(maxAbsEtaRef.current, 0.05)
+        const exag = TARGET_PEAK / vAbs
+        const posFill = displace(tpl, s.eta, exag, BASE_OFFSET)
+        const posWire = displace(tpl, s.eta, exag, BASE_OFFSET + WIRE_LIFT)
+        const { fill, wire } = makeWavePrimitives(
+          tpl,
+          posFill,
+          posWire,
+          etaToWaveCanvas(s.eta, chi, vAbs),
+        )
+        // add new first, then drop old — never a blank frame. Fill before
+        // wire: equal-depth translucents keep insertion order (stable sort),
+        // so lines composite over the dark fill.
+        const oldFill = meshFillRef.current
+        const oldWire = meshWireRef.current
+        scene.primitives.add(fill)
+        scene.primitives.add(wire)
+        meshFillRef.current = fill
+        meshWireRef.current = wire
+        if (oldFill) scene.primitives.remove(oldFill)
+        if (oldWire) scene.primitives.remove(oldWire)
+
+        // glow nodes: persistent collection, only positions move per frame
+        let nodes = meshNodesRef.current
+        if (!nodes || nodes.isDestroyed()) {
+          nodes = new Cesium.PointPrimitiveCollection()
+          scene.primitives.add(nodes)
+          meshNodesRef.current = nodes
+        }
+        if (templateFresh || nodes.length !== tpl.nodeIndices.length) {
+          nodes.removeAll()
+          for (let k = 0; k < tpl.nodeIndices.length; k++)
+            nodes.add({
+              color: MESH_NODE_COLOR,
+              pixelSize: nodePixelSize(k),
+              disableDepthTestDistance: 0,
+            })
+        }
+        for (let k = 0; k < tpl.nodeIndices.length; k++) {
+          const v = tpl.nodeIndices[k] * 3
+          nodes.get(k).position = new Cesium.Cartesian3(
+            posWire[v],
+            posWire[v + 1],
+            posWire[v + 2],
+          )
+        }
+      })
+      .catch((e) => console.error('[Globe] wave mesh', e))
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showMesh, scenario, chi, t])
+
+  // --- moon indicator: arrow at the sub-lunar point, tracking the moon ---
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer || viewer.isDestroyed()) return
+
+    if (!meta) {
+      if (moonRef.current) {
+        moonRef.current.lines.show = false
+        moonRef.current.points.show = false
+        moonRef.current.labels.show = false
+      }
+      return
+    }
+
+    // lazily create the arrow + moon dot + label once
+    let moon = moonRef.current
+    if (!moon || moon.lines.isDestroyed()) {
+      const lines = new Cesium.PolylineCollection()
+      const arrow = lines.add({
+        width: 16,
+        material: Cesium.Material.fromType('PolylineArrow', {
+          color: Cesium.Color.fromCssColorString('#ffe9b0').withAlpha(0.95),
+        }),
+      })
+      const points = new Cesium.PointPrimitiveCollection()
+      const dot = points.add({
+        pixelSize: 11,
+        color: Cesium.Color.fromCssColorString('#f6f1dc'),
+        outlineColor: Cesium.Color.fromCssColorString('#ffe9b0').withAlpha(0.5),
+        outlineWidth: 3,
+      })
+      const labels = new Cesium.LabelCollection()
+      const label = labels.add({
+        position: Cesium.Cartesian3.fromDegrees(0, 0, 2_750_000),
+        text: 'MOON',
+        font: '600 13px Inter, system-ui, sans-serif',
+        fillColor: Cesium.Color.fromCssColorString('#ffe9b0'),
+        outlineColor: Cesium.Color.fromCssColorString('#050d1a'),
+        outlineWidth: 4,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+      })
+      viewer.scene.primitives.add(lines)
+      viewer.scene.primitives.add(points)
+      viewer.scene.primitives.add(labels)
+      moon = { lines, arrow, points, dot, labels, label }
+      moonRef.current = moon
+    }
+    moon.lines.show = true
+    moon.points.show = true
+    moon.labels.show = true
+
+    // arrow base sits above the tallest possible wave spike, pointing out
+    // along the moon's direction from the sub-lunar point
+    const lon = subLunarLon(meta, t)
+    moon.arrow.positions = Cesium.Cartesian3.fromDegreesArrayHeights([
+      lon, 0, 650_000,
+      lon, 0, 2_300_000,
+    ])
+    moon.dot.position = Cesium.Cartesian3.fromDegrees(lon, 0, 2_500_000)
+    moon.label.position = Cesium.Cartesian3.fromDegrees(lon, 0, 2_750_000)
+  }, [meta, t])
 
   // --- anomaly overlay: red mask for the current frame when toggled on ---
   useEffect(() => {
@@ -293,7 +529,7 @@ export function Globe({
           }))
 
         const STEP = 5 // subsample the grid
-        const H = 90_000 // float arrows above the surface
+        const H = 260_000 // above the surface AND the mesh's ~225 km peaks
         const SCALE = 8 // degrees of arrow per m/s
         const MAX_LEN = 6 // clamp long arrows
         for (let i = 0; i < lat; i += STEP) {
