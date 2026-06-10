@@ -16,8 +16,8 @@
 - [ ] **[V]** Скаффолдить `frontend/` — Vite + React + TS, все зависимости из CLAUDE.md §7.2 установлены, `npm run dev` открывается
 - [ ] **[V]** Запустить скрипт fake zarr (CLAUDE.md §13) → `backend/data/scenario_test_*/` создан
 - [ ] **[V]** `GET /scenarios` и `GET /state` возвращают JSON из fake zarr
-- [ ] **[K]** Dedalus v3 установлен, `import dedalus.public as d3` работает
-- [ ] **[K]** SWE на плоском периодическом домене (без сферы), zarr output соответствует схеме CLAUDE.md §4
+- [x] **[K]** Dedalus v3 установлен, `import dedalus.public as d3` работает
+- [x] **[K]** SWE на плоском периодическом домене (без сферы), zarr output соответствует схеме CLAUDE.md §4
 
 **✅ Phase 0 готова когда:**
 ```bash
@@ -36,8 +36,8 @@ curl "localhost:8000/state?scenario=scenario_test_moon384km_omega1x_temp15&t=0"
 - [ ] **[V]** Fetch `GET /state` при t=0, `etaToTexture()` → `BitmapLayer` на глобусе (синий/белый/красный)
 - [ ] **[V]** Fetch `GET /land` один раз, chi=0 → оверлей невидим, но код готов
 - [ ] **[V]** Базовый лейаут: глобус на всю высоту, placeholder сайдбар справа
-- [ ] **[K]** Сфера в Dedalus — `SphereBasis` (не `S2Basis`!), SWE 100 шагов без дивергенции
-- [ ] **[K]** Кориолис — полная сфера `f(φ) = 2Ω·sin(φ)` через `MulCosine(skew(u))`
+- [x] **[K]** Сфера в Dedalus — `SphereBasis` (не `S2Basis`!), SWE 100 шагов без дивергенции
+- [x] **[K]** Кориолис — полная сфера `f(φ) = 2Ω·sin(φ)` через `MulCosine(skew(u))`
 
 **✅ Phase 1 готова когда:** хитмап рендерится на глобусе из fake данных, у Кирилла SWE на сфере стабильна.
 
@@ -59,10 +59,10 @@ curl "localhost:8000/state?scenario=scenario_test_moon384km_omega1x_temp15&t=0"
 - [ ] **[V]** `nearestScenario()` — при изменении слайдера выбирается ближайший сценарий
 - [ ] **[V]** `OmegaBadge` — показывает текущий Ω относительно Земли
 - [ ] **[V]** `GET /scenarios` → frontend показывает список доступных сценариев
-- [ ] **[K]** Переменная топография `H_b(λ,φ)` — рифты снижают высоту волны над ними
-- [ ] **[K]** Приливное форсирование от одной луны — `U_tidal` из позиции луны, η показывает прилив
-- [ ] **[K]** Валидация: equilibrium tide η₀ ≈ **0.36 м** (не 0.27 м!)
-- [ ] **[K]** **Первый реальный сценарий записан в zarr и передан Владу** ← критический deliverable
+- [x] **[K]** Переменная топография `H_b(λ,φ)` — рифты снижают высоту волны над ними
+- [x] **[K]** Приливное форсирование от одной луны — `U_tidal` из позиции луны, η показывает прилив
+- [x] **[K]** Валидация: equilibrium tide η₀ ≈ **0.36 м** (не 0.27 м!)
+- [x] **[K]** **Первый реальный сценарий записан в zarr и передан Владу** ← критический deliverable
 
 **✅ Phase 2 готова когда:** слайдер меняется → сценарий переключается → хитмап обновляется. Реальный zarr получен.
 
@@ -79,9 +79,9 @@ curl "localhost:8000/state?scenario=scenario_test_moon384km_omega1x_temp15&t=0"
 - [x] **[V]** `anomalyToTexture()` — красный оверлей на аномальных ячейках
 - [x] **[V]** `EnergyChart` в сайдбаре — E_k и E_p по времени (свой SVG-спарклайн вместо Plotly)
 - [x] **[V]** `detect_energy_spike()` — красные X-маркеры на спайках энергии
-- [ ] **[K]** Volume penalization χ работает — холмы выше уровня воды отражают волны
-- [ ] **[K]** `chi.zarr` включён в output — Vlad рендерит terrain
-- [ ] **[K]** Несколько сценариев с разными Ω — 0.1×, 1×, 3×, 5× Earth
+- [x] **[K]** Volume penalization χ работает — холмы выше уровня воды отражают волны
+- [x] **[K]** `chi.zarr` включён в output — Vlad рендерит terrain
+- [x] **[K]** Несколько сценариев с разными Ω — 0.1×, 1×, 3×, 5× Earth
 
 **✅ Phase 3 готова когда:** реальные волны видны, красный оверлей аномалий появляется, energy chart показывает спайки.
 
@@ -98,10 +98,10 @@ curl "localhost:8000/state?scenario=scenario_test_moon384km_omega1x_temp15&t=0"
 - [ ] **[V]** Anomaly count badge в сайдбаре ("12 anomalous cells")
 - [ ] **[V]** Scenario library UI — карточки доступных сценариев
 - [ ] **[V]** Deploy на Railway
-- [ ] **[K]** Поддержка нескольких лун — суперпозиция `U_tidal`
-- [ ] **[K]** 20+ precomputed сценариев покрывают весь диапазон слайдеров
-- [ ] **[K]** Energy conservation validation: E_total drift < 0.1% за 100 шагов
-- [ ] **[K]** Land reflection validation: волна отражается, без глобального Gibbs ringing
+- [x] **[K]** Поддержка нескольких лун — суперпозиция `U_tidal`
+- [x] **[K]** 20+ precomputed сценариев покрывают весь диапазон слайдеров
+- [x] **[K]** Energy conservation validation: E_total drift < 0.1% за 100 шагов
+- [x] **[K]** Land reflection validation: волна отражается, без глобального Gibbs ringing
 
 **✅ Phase 4 готова когда:** полный демо запускается, аномалии работают на реальных данных, задеплоено.
 

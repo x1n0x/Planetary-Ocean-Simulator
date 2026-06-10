@@ -75,6 +75,8 @@ function App() {
   const [showAnomaly, setShowAnomaly] = useState(false)
   const [anomalyCount, setAnomalyCount] = useState<number | null>(null)
   const [showVectors, setShowVectors] = useState(false)
+  // 3D plexus wave surface — the default view.
+  const [showMesh, setShowMesh] = useState(true)
 
   // Full energy series for the chart, fetched once per scenario.
   const [energy, setEnergy] = useState<EnergySeries | null>(null)
@@ -127,6 +129,8 @@ function App() {
           chi={chi}
           showAnomaly={showAnomaly}
           showVectors={showVectors}
+          showMesh={showMesh}
+          meta={activeMeta}
           onProgress={setBuffered}
           onAnomalyCount={setAnomalyCount}
         />
@@ -207,6 +211,16 @@ function App() {
 
         <section className="console-section">
           <div className="eyebrow">Analysis</div>
+          <button
+            className={`toggle ${showMesh ? 'on' : ''}`}
+            onClick={() => setShowMesh((m) => !m)}
+          >
+            <span className="toggle-track">
+              <span className="toggle-knob" />
+            </span>
+            <span className="toggle-label">Wave mesh</span>
+          </button>
+
           <button
             className={`toggle ${showAnomaly ? 'on' : ''}`}
             onClick={() => setShowAnomaly((a) => !a)}
