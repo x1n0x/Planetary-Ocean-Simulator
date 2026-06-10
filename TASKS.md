@@ -72,7 +72,7 @@ curl "localhost:8000/state?scenario=scenario_test_moon384km_omega1x_temp15&t=0"
 > **Цель:** реальная физика видна, первые детекторы аномалий работают  
 > **Дедлайн:** Week 5–6
 
-- [ ] **[V]** Заменить fake zarr на реальный от Кирилла — проверить соответствие осей координат (CLAUDE.md §4.4) ⏳ ждём zarr
+- [x] **[V]** Заменить fake zarr на реальный от Кирилла — 6 сценариев в `backend/data/`, оси совпадают (fix `8d5dbf3`)
 - [x] **[V]** Velocity vector layer — стрелки течений на ocean cells, land cells пропускаются (Cesium PolylineCollection)
 - [x] **[V]** `detect_threshold()` в `services/anomaly.py` с wet mask (chi < 0.5)
 - [x] **[V]** `GET /anomaly` endpoint подключён
@@ -91,13 +91,13 @@ curl "localhost:8000/state?scenario=scenario_test_moon384km_omega1x_temp15&t=0"
 > **Цель:** полный DS модуль, проект выглядит как продукт  
 > **Дедлайн:** Week 7–8
 
-- [ ] **[V]** Написать `scripts/train_iso_forest.py` — читает zarr, тренирует на 80%, сохраняет joblib
-- [ ] **[V]** Натренировать Isolation Forest на реальных сценариях → `backend/models/`
-- [ ] **[V]** `detect_isolation()` подключён в `/anomaly` endpoint
-- [ ] **[V]** Composite anomaly overlay (threshold OR isolation forest)
-- [ ] **[V]** Anomaly count badge в сайдбаре ("12 anomalous cells")
-- [ ] **[V]** Scenario library UI — карточки доступных сценариев
-- [ ] **[V]** Deploy на Railway
+- [x] **[V]** Написать `scripts/train_iso_forest.py` — читает zarr, тренирует на 80%, сохраняет joblib
+- [x] **[V]** Натренировать Isolation Forest на реальных сценариях → `backend/models/scenario.joblib` (4.6M сэмплов с 6 сценариев)
+- [x] **[V]** `detect_isolation()` подключён в `/anomaly` endpoint — проверено end-to-end, `isolation_scores` непустые
+- [x] **[V]** Composite anomaly overlay (threshold OR isolation forest) — `Globe.tsx` рендерит `composite_mask`
+- [x] **[V]** Anomaly count badge в сайдбаре ("12 anomalous cells") — chip в HUD + счётчик на тоггле
+- [x] **[V]** Scenario library UI — карточки доступных сценариев (`App.tsx` scenario-list)
+- [ ] **[V]** Deploy на Railway ← остаётся
 - [x] **[K]** Поддержка нескольких лун — суперпозиция `U_tidal`
 - [x] **[K]** 20+ precomputed сценариев покрывают весь диапазон слайдеров
 - [x] **[K]** Energy conservation validation: E_total drift < 0.1% за 100 шагов
