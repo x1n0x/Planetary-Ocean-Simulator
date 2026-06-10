@@ -122,8 +122,10 @@ def run_sphere_swe(
     E_p = np.empty(T, dtype="float32")
 
     def to_geo(a2d):
-        # (Nphi, Ntheta) -> (Ntheta, Nphi)=(lat,lon), flip so row0 = south pole
-        return a2d.T[::-1, :].copy()
+        # (Nphi, Ntheta) -> (Ntheta, Nphi) = (lat, lon). Dedalus theta is
+        # DESCENDING (rows already south-first); phi starts at 0 while the
+        # schema puts lon -180 at col 0 -> roll half a revolution.
+        return np.roll(a2d.T, -(Nphi // 2), axis=1).copy()
 
     for n in range(T):
         h.change_scales(1)

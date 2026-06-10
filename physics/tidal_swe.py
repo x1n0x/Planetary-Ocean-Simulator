@@ -177,7 +177,10 @@ def run_tidal_swe(
     v_out = np.empty((T, Ntheta, Nphi), dtype="float32")
     E_k = np.empty(T, dtype="float32")
     E_p = np.empty(T, dtype="float32")
-    to_geo = lambda a: a.T[::-1, :].copy()
+    # Dedalus grids: theta DESCENDING (so .T rows are already south-first)
+    # and phi starting at 0, while the schema puts lon -180 at col 0 —
+    # roll by half a revolution. (v1 wrongly flipped lat and skipped the roll.)
+    to_geo = lambda a: np.roll(a.T, -(Nphi // 2), axis=1).copy()
 
     # optional seafloor-displacement event (a tsunami source) — a localized η
     # uplift injected at one step. Radiates a wave packet that the anomaly
