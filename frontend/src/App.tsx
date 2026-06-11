@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { Globe } from './components/Globe'
 import { OmegaBadge } from './components/OmegaBadge'
@@ -15,12 +15,37 @@ import './App.css'
 // run it fast and smooth.
 const PLAYBACK_MS = 70
 
-function Stat({ k, v }: { k: string; v: string }) {
+// A single labelled stat: value over a small-caps label.
+function Reading({ k, v }: { k: string; v: string }) {
   return (
-    <div className="stat">
-      <span className="stat-k">{k}</span>
-      <span className="stat-v mono">{v}</span>
+    <div className="reading">
+      <span className="reading-v display tnum">{v}</span>
+      <span className="reading-k">{k}</span>
     </div>
+  )
+}
+
+// A numbered section (Roman numeral + title).
+function Movement({
+  mark,
+  title,
+  aside,
+  children,
+}: {
+  mark: string
+  title: string
+  aside?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <section className="movement">
+      <div className="movement-head">
+        <span className="movement-mark display">{mark}</span>
+        <h2 className="movement-title">{title}</h2>
+        {aside != null && <span className="movement-aside tnum">{aside}</span>}
+      </div>
+      {children}
+    </section>
   )
 }
 
@@ -109,7 +134,7 @@ function App() {
     return () => clearInterval(id)
   }, [playing, total])
 
-  // Clicking a scenario sets the sliders so nearestScenario lands on it.
+  // Clicking a catalogue entry sets the sliders so nearestScenario lands on it.
   function selectScenario(s: Scenario) {
     setControls({
       moonDist: s.moon_dist_km,
@@ -119,9 +144,11 @@ function App() {
     })
   }
 
+  const issue = String(scenarios.length).padStart(2, '0')
+
   return (
-    <div className="app">
-      <main className="globe-pane">
+    <div className="atlas">
+      <main className="plate">
         <Globe
           scenario={active}
           total={total}
@@ -135,24 +162,29 @@ function App() {
           onAnomalyCount={setAnomalyCount}
         />
 
-        {/* subtle edge darkening so the globe sits in space */}
-        <div className="globe-vignette" aria-hidden />
+        {/* grain texture + soft edge over the globe */}
+        <div className="plate-grain" aria-hidden />
+        <div className="plate-edge" aria-hidden />
 
-        <header className="hud hud-top">
-          <div className="wordmark">
-            <span className="wordmark-title">Planetary Ocean</span>
+        {/* top bar: title ···· status */}
+        <header className="folio folio-top">
+          <div className="colophon">
+            <span className="colophon-mark" aria-hidden />
+            <span className="colophon-name">Planetary Ocean</span>
+            <span className="colophon-rule" aria-hidden />
+            <span className="colophon-issue tnum">{issue} scenarios</span>
           </div>
-          <div className="hud-right">
+          <div className="status-rail">
             {showAnomaly && anomalyCount != null && (
-              <span className="anomaly-chip">
-                <span className="anomaly-dot" />
-                {anomalyCount} anomalous
+              <span className="ledger ledger-oxide">
+                <span className="ledger-v tnum">{anomalyCount}</span>
+                <span className="ledger-k">anomalous</span>
               </span>
             )}
-            <span className={`live ${buffering ? 'sync' : ''}`}>
-              <span className="live-dot" />
-              <span className="live-text">
-                {buffering ? `Buffering ${buffered}/${total}` : 'Live feed'}
+            <span className={`ledger ${buffering ? 'ledger-work' : ''}`}>
+              <span className="ledger-dot" aria-hidden />
+              <span className="ledger-k">
+                {buffering ? `loading ${buffered}/${total}` : 'live'}
               </span>
             </span>
             <OmegaBadge omega={omega} />
@@ -171,123 +203,116 @@ function App() {
         )}
 
         {!active && (
-          <div className="placeholder">{error ?? 'Establishing link…'}</div>
+          <div className="placeholder display">{error ?? 'Loading…'}</div>
         )}
       </main>
 
-      <aside className="console">
-        <div className="console-section console-brand">
-          <h1>
-            Planetary<span>Ocean</span>
+      <aside className="leaf">
+        <div className="masthead">
+          <span className="masthead-eyebrow">Shallow-water sphere · v2</span>
+          <h1 className="masthead-title display">
+            Planetary
+            <em>Ocean</em>
           </h1>
-          <p className="brand-sub">Full-sphere shallow-water · spec v2</p>
+          <p className="masthead-sub">
+            Full-sphere shallow-water model. Adjustable moon and rotation.
+          </p>
         </div>
 
-        <section className="console-section">
-          <div className="eyebrow">Parameters</div>
+        <Movement mark="I" title="Parameters">
           <ControlPanel
             values={controls}
             onChange={(patch) => setControls((c) => ({ ...c, ...patch }))}
           />
-        </section>
+        </Movement>
 
-        <section className="console-section">
-          <div className="eyebrow">Active field</div>
-          <div className="readout">
-            <div className="readout-id mono">{active ?? '—'}</div>
-            {activeMeta && (
-              <div className="stat-grid">
-                <Stat
-                  k="Grid"
-                  v={`${activeMeta.grid_shape[0]}×${activeMeta.grid_shape[1]}`}
-                />
-                <Stat k="Δt" v={`${activeMeta.dt_seconds}s`} />
-                <Stat k="Steps" v={`${activeMeta.T_total_steps}`} />
-                <Stat k="Temp" v={`${activeMeta.temperature_C}°C`} />
-              </div>
-            )}
+        <Movement mark="II" title="Active field" aside={active ? undefined : '—'}>
+          <div className="field-id tnum">{active ?? 'No scenario selected'}</div>
+          {activeMeta && (
+            <div className="field-grid">
+              <Reading
+                k="grid"
+                v={`${activeMeta.grid_shape[0]}×${activeMeta.grid_shape[1]}`}
+              />
+              <Reading k="step Δt" v={`${activeMeta.dt_seconds}s`} />
+              <Reading k="frames" v={`${activeMeta.T_total_steps}`} />
+              <Reading k="temperature" v={`${activeMeta.temperature_C}°`} />
+            </div>
+          )}
+        </Movement>
+
+        <Movement mark="III" title="Layers">
+          <div className="lantern-row">
+            <button
+              className={`lantern ${showMesh ? 'lit' : ''}`}
+              onClick={() => setShowMesh((m) => !m)}
+            >
+              <span className="lantern-glyph" aria-hidden />
+              <span className="lantern-label">Wave mesh</span>
+            </button>
+            <button
+              className={`lantern ${showAnomaly ? 'lit lit-oxide' : ''}`}
+              onClick={() => setShowAnomaly((a) => !a)}
+            >
+              <span className="lantern-glyph" aria-hidden />
+              <span className="lantern-label">Anomalies</span>
+              {showAnomaly && anomalyCount != null && (
+                <span className="lantern-count tnum">{anomalyCount}</span>
+              )}
+            </button>
+            <button
+              className={`lantern ${showVectors ? 'lit' : ''}`}
+              onClick={() => setShowVectors((s) => !s)}
+            >
+              <span className="lantern-glyph" aria-hidden />
+              <span className="lantern-label">Currents</span>
+            </button>
           </div>
-        </section>
-
-        <section className="console-section">
-          <div className="eyebrow">Analysis</div>
-          <button
-            className={`toggle ${showMesh ? 'on' : ''}`}
-            onClick={() => setShowMesh((m) => !m)}
-          >
-            <span className="toggle-track">
-              <span className="toggle-knob" />
-            </span>
-            <span className="toggle-label">Wave mesh</span>
-          </button>
-
-          <button
-            className={`toggle ${showAnomaly ? 'on' : ''}`}
-            onClick={() => setShowAnomaly((a) => !a)}
-          >
-            <span className="toggle-track">
-              <span className="toggle-knob" />
-            </span>
-            <span className="toggle-label">Anomaly overlay</span>
-            {showAnomaly && anomalyCount != null && (
-              <span className="toggle-count">{anomalyCount}</span>
-            )}
-          </button>
-
-          <button
-            className={`toggle ${showVectors ? 'on' : ''}`}
-            onClick={() => setShowVectors((s) => !s)}
-          >
-            <span className="toggle-track">
-              <span className="toggle-knob" />
-            </span>
-            <span className="toggle-label">Current vectors</span>
-          </button>
 
           {energy ? (
-            <div className="chart-wrap">
-              <EnergyChart
-                E_k={energy.E_k}
-                E_p={energy.E_p}
-                spikeTimes={energy.spikes}
-                t={t}
-                total={total}
-              />
-            </div>
+            <EnergyChart
+              E_k={energy.E_k}
+              E_p={energy.E_p}
+              spikeTimes={energy.spikes}
+              t={t}
+              total={total}
+            />
           ) : (
-            <div className="chart-skeleton">loading energy…</div>
+            <div className="chart-skeleton">loading…</div>
           )}
-        </section>
+        </Movement>
 
-        <section className="console-section">
-          <div className="eyebrow">
-            Scenario library <span className="count">{scenarios.length}</span>
-          </div>
-          <ul className="scenario-list">
-            {scenarios.map((s) => {
+        <Movement mark="IV" title="Scenarios" aside={`${scenarios.length}`}>
+          <ol className="catalogue">
+            {scenarios.map((s, i) => {
               const rel = s.omega_rad_s / EARTH_OMEGA
               const tone = rel > 2 ? 'hot' : rel < 0.3 ? 'cold' : 'calm'
               return (
                 <li key={s.id}>
                   <button
-                    className={s.id === active ? 'active' : ''}
+                    className={s.id === active ? 'entry active' : 'entry'}
                     onClick={() => selectScenario(s)}
                   >
-                    <span className={`scen-omega ${tone}`}>
-                      Ω {rel.toFixed(1)}×
+                    <span className="entry-no tnum">
+                      {String(i + 1).padStart(2, '0')}
                     </span>
-                    <span className="scen-dims mono">
-                      {Math.round(s.moon_dist_km / 1000)}k km · {s.temperature_C}
-                      °C
+                    <span className="entry-body">
+                      <span className="entry-dims tnum">
+                        {Math.round(s.moon_dist_km / 1000)}k km · {s.temperature_C}
+                        °C
+                      </span>
+                      <span className={`entry-omega ${tone} tnum`}>
+                        Ω {rel.toFixed(1)}×
+                      </span>
                     </span>
                   </button>
                 </li>
               )
             })}
-          </ul>
-        </section>
+          </ol>
+        </Movement>
 
-        {error && <p className="console-error">{error}</p>}
+        {error && <p className="dispatch-error">{error}</p>}
       </aside>
     </div>
   )
