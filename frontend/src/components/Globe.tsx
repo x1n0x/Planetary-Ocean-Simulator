@@ -6,10 +6,15 @@ import { getState, getAnomaly } from '../api'
 import type { Scenario } from '../types'
 import {
   etaToTexture,
-  chiToTexture,
   anomalyToTexture,
   imageDataToDataUrl,
 } from '../utils/textures'
+import { makeMoonTexture, makeMoonPrimitive, moonModelMatrix } from '../utils/moonBody'
+import {
+  buildLandTemplate,
+  landColorCanvas,
+  makeLandPrimitive,
+} from '../utils/landMesh'
 import {
   buildMeshTemplate,
   displace,
@@ -79,7 +84,7 @@ export function Globe({
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<Cesium.Viewer | null>(null)
-  const landLayerRef = useRef<Cesium.ImageryLayer | null>(null)
+  const landPrimRef = useRef<Cesium.Primitive | null>(null)
   const anomalyLayerRef = useRef<Cesium.ImageryLayer | null>(null)
   const vectorsRef = useRef<Cesium.PolylineCollection | null>(null)
   const arrowMatRef = useRef<Cesium.Material | null>(null)
@@ -97,15 +102,8 @@ export function Globe({
   const maxAbsEtaRef = useRef(0) // running per-scenario |eta| max → exaggeration
   const meshSeqRef = useRef(0)
   const meshModeRef = useRef(false) // read by showFrame: mesh hides the heatmap
-  // moon direction indicator: arrow + dot + label at the sub-lunar point
-  const moonRef = useRef<{
-    lines: Cesium.PolylineCollection
-    arrow: Cesium.Polyline
-    points: Cesium.PointPrimitiveCollection
-    dot: Cesium.PointPrimitive
-    labels: Cesium.LabelCollection
-    label: Cesium.Label
-  } | null>(null)
+  // 3D moon body — a cratered sphere orbiting the sub-lunar point
+  const moonPrimRef = useRef<Cesium.Primitive | null>(null)
   // latest t, for the async prebuild loop to know which frame to reveal
   const tRef = useRef(t)
   useEffect(() => {
@@ -122,9 +120,7 @@ export function Globe({
     // mesh mode renders eta as 3D geometry — keep the flat heatmap hidden
     layer.show = !meshModeRef.current
     shownRef.current = layer
-    // stacking order: eta (bottom) → land → anomaly (top)
-    if (landLayerRef.current)
-      viewer.imageryLayers.raiseToTop(landLayerRef.current)
+    // stacking order: eta (bottom) → anomaly (top); land is a 3D primitive
     if (anomalyLayerRef.current)
       viewer.imageryLayers.raiseToTop(anomalyLayerRef.current)
   }
@@ -152,10 +148,28 @@ export function Globe({
     })
     const scene = viewer.scene
     viewer.imageryLayers.removeAll()
-    scene.backgroundColor = Cesium.Color.fromCssColorString('#050d1a')
-    scene.globe.baseColor = Cesium.Color.fromCssColorString('#0a1a2f')
+    scene.backgroundColor = Cesium.Color.fromCssColorString('#100f0c')
+    scene.globe.baseColor = Cesium.Color.fromCssColorString('#1b1710')
     scene.globe.showGroundAtmosphere = false
     if (scene.skyAtmosphere) scene.skyAtmosphere.show = false
+
+    // Fixed directional light → the moon body shows a phase. The flat wave mesh,
+    // flat land primitive (hillshade is baked into its texture) and imagery
+    // layers don't use scene lighting, so they're unaffected.
+    scene.light = new Cesium.DirectionalLight({
+      direction: Cesium.Cartesian3.normalize(
+        new Cesium.Cartesian3(-0.7, -0.55, -0.45),
+        new Cesium.Cartesian3(),
+      ),
+      intensity: 2.4,
+    })
+
+    // Build the moon once; its world transform is updated per frame.
+    const moon = makeMoonPrimitive(makeMoonTexture())
+    moon.show = false
+    scene.primitives.add(moon)
+    moonPrimRef.current = moon
+
     viewer.camera.setView({
       destination: Cesium.Cartesian3.fromDegrees(0, 12, 22_000_000),
     })
@@ -181,7 +195,7 @@ export function Globe({
       input.destroy()
       if (!viewer.isDestroyed()) viewer.destroy()
       viewerRef.current = null
-      landLayerRef.current = null
+      landPrimRef.current = null
       anomalyLayerRef.current = null
       vectorsRef.current = null
       arrowMatRef.current = null
@@ -189,30 +203,33 @@ export function Globe({
       meshWireRef.current = null
       meshNodesRef.current = null
       meshTemplateRef.current = null
-      moonRef.current = null
+      moonPrimRef.current = null
       frames.clear()
       shownRef.current = null
     }
   }, [])
 
-  // --- land overlay: rebuild when chi (scenario) changes ---
+  // --- relief land: 3D island terrain, rebuilt when chi (scenario) changes ---
   useEffect(() => {
     const viewer = viewerRef.current
     if (!viewer || !chi) return
-    let cancelled = false
-    makeLayer(viewer, chiToTexture(chi))
-      .then((layer) => {
-        if (cancelled || viewer.isDestroyed()) {
-          if (!viewer.isDestroyed()) viewer.imageryLayers.remove(layer, true)
-          return
-        }
-        if (landLayerRef.current)
-          viewer.imageryLayers.remove(landLayerRef.current, true)
-        landLayerRef.current = layer
-      })
-      .catch((e) => console.error('[Globe] land layer', e))
+    const scene = viewer.scene
+
+    if (landPrimRef.current) {
+      scene.primitives.remove(landPrimRef.current)
+      landPrimRef.current = null
+    }
+    const tpl = buildLandTemplate(chi)
+    if (!tpl.hasLand) return // open ocean: nothing to draw
+    const prim = makeLandPrimitive(tpl, landColorCanvas(tpl))
+    scene.primitives.add(prim)
+    landPrimRef.current = prim
+
     return () => {
-      cancelled = true
+      if (!viewer.isDestroyed() && landPrimRef.current) {
+        scene.primitives.remove(landPrimRef.current)
+        landPrimRef.current = null
+      }
     }
   }, [chi])
 
@@ -383,68 +400,17 @@ export function Globe({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showMesh, scenario, chi, t])
 
-  // --- moon indicator: arrow at the sub-lunar point, tracking the moon ---
+  // --- moon body: orbit the sub-lunar point, slowly spinning under the light ---
   useEffect(() => {
-    const viewer = viewerRef.current
-    if (!viewer || viewer.isDestroyed()) return
-
+    const moon = moonPrimRef.current
+    if (!moon) return
     if (!meta) {
-      if (moonRef.current) {
-        moonRef.current.lines.show = false
-        moonRef.current.points.show = false
-        moonRef.current.labels.show = false
-      }
+      moon.show = false
       return
     }
-
-    // lazily create the arrow + moon dot + label once
-    let moon = moonRef.current
-    if (!moon || moon.lines.isDestroyed()) {
-      const lines = new Cesium.PolylineCollection()
-      const arrow = lines.add({
-        width: 16,
-        material: Cesium.Material.fromType('PolylineArrow', {
-          color: Cesium.Color.fromCssColorString('#ffe9b0').withAlpha(0.95),
-        }),
-      })
-      const points = new Cesium.PointPrimitiveCollection()
-      const dot = points.add({
-        pixelSize: 11,
-        color: Cesium.Color.fromCssColorString('#f6f1dc'),
-        outlineColor: Cesium.Color.fromCssColorString('#ffe9b0').withAlpha(0.5),
-        outlineWidth: 3,
-      })
-      const labels = new Cesium.LabelCollection()
-      const label = labels.add({
-        position: Cesium.Cartesian3.fromDegrees(0, 0, 2_750_000),
-        text: 'MOON',
-        font: '600 13px Inter, system-ui, sans-serif',
-        fillColor: Cesium.Color.fromCssColorString('#ffe9b0'),
-        outlineColor: Cesium.Color.fromCssColorString('#050d1a'),
-        outlineWidth: 4,
-        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-      })
-      viewer.scene.primitives.add(lines)
-      viewer.scene.primitives.add(points)
-      viewer.scene.primitives.add(labels)
-      moon = { lines, arrow, points, dot, labels, label }
-      moonRef.current = moon
-    }
-    moon.lines.show = true
-    moon.points.show = true
-    moon.labels.show = true
-
-    // arrow base sits above the tallest possible wave spike, pointing out
-    // along the moon's direction from the sub-lunar point
     const lon = subLunarLon(meta, t)
-    moon.arrow.positions = Cesium.Cartesian3.fromDegreesArrayHeights([
-      lon, 0, 650_000,
-      lon, 0, 2_300_000,
-    ])
-    moon.dot.position = Cesium.Cartesian3.fromDegrees(lon, 0, 2_500_000)
-    moon.label.position = Cesium.Cartesian3.fromDegrees(lon, 0, 2_750_000)
+    moon.modelMatrix = moonModelMatrix(lon, t * 0.06)
+    moon.show = true
   }, [meta, t])
 
   // --- anomaly overlay: red mask for the current frame when toggled on ---
@@ -525,7 +491,7 @@ export function Globe({
         const mat =
           arrowMatRef.current ??
           (arrowMatRef.current = Cesium.Material.fromType('PolylineArrow', {
-            color: Cesium.Color.fromCssColorString('#bfe6f0').withAlpha(0.9),
+            color: Cesium.Color.fromCssColorString('#d9c896').withAlpha(0.9),
           }))
 
         const STEP = 5 // subsample the grid

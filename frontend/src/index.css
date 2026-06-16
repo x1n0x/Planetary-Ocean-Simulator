@@ -1,26 +1,39 @@
 :root {
   color-scheme: dark;
 
-  /* Refined dark — flat charcoal, no glow */
-  --bg: #0a0c0f;
-  --surface: #101319;
-  --surface-2: #141821;
-  --surface-hover: #161b24;
-  --border: #1e232b;
-  --border-strong: #2a313b;
+  /* ============================================================
+     Design tokens — dark theme, serif type, brass accent.
+     ============================================================ */
 
-  --text: #e6e8eb;
-  --text-dim: #9aa1ab;
-  --text-faint: #636a74;
+  /* background — warm near-blacks */
+  --ink: #100f0c;
+  --ink-2: #15130e;
+  --ink-3: #1c1913;
+  --ink-rise: #211d15; /* hover */
 
-  --accent: #4ea7c4; /* muted teal-blue, used sparingly */
-  --accent-soft: rgba(78, 167, 196, 0.14);
-  --danger: #df6076;
-  --warn: #d6a45c;
+  /* text */
+  --cream: #ece3d0;
+  --cream-dim: #b1a589;
+  --cream-faint: #7c725b;
+  --cream-ghost: #4f4838;
 
-  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
-  --radius: 10px;
+  /* accent */
+  --brass: #c6a03c;
+  --brass-bright: #ddb44e;
+  --brass-soft: rgba(198, 160, 60, 0.12);
+
+  /* secondary — anomalies and rotation regime */
+  --oxide: #c2613f; /* anomalies, warnings, fast Ω */
+  --verdigris: #6e9c8a; /* calm regime */
+  --lapis: #5f7fa6; /* slow regime */
+
+  /* hairline borders */
+  --rule: rgba(236, 227, 208, 0.13);
+  --rule-strong: rgba(236, 227, 208, 0.24);
+  --rule-brass: rgba(198, 160, 60, 0.34);
+
+  --display: 'Fraunces', 'Times New Roman', serif;
+  --body: 'Spectral', Georgia, serif;
 }
 
 * {
@@ -35,30 +48,43 @@ body,
 }
 
 body {
-  font: 14px/1.5 var(--font-sans);
-  color: var(--text);
-  background: var(--bg);
+  font: 400 15px/1.55 var(--body);
+  color: var(--cream);
+  background: var(--ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  font-feature-settings: 'onum' 1; /* old-style figures in running text */
 }
 
+/* tabular lining figures wherever data is read against itself */
+.tnum {
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.display {
+  font-family: var(--display);
+}
+
+/* a fine brass scrollbar, barely there */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 11px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #20262f;
-  border-radius: 999px;
-  border: 3px solid transparent;
+  background: rgba(198, 160, 60, 0.22);
+  border-radius: 0;
+  border: 4px solid transparent;
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #2c3540;
+  background: rgba(198, 160, 60, 0.4);
   background-clip: padding-box;
 }
 
 ::selection {
-  background: var(--accent-soft);
+  background: rgba(198, 160, 60, 0.26);
+  color: var(--cream);
 }

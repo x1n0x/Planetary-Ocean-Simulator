@@ -29,8 +29,8 @@ function Row({
   return (
     <div className="ctrl-row">
       <div className="ctrl-head">
-        <span>{label}</span>
-        <span className="mono ctrl-val">{display}</span>
+        <span className="ctrl-label">{label}</span>
+        <span className="tnum ctrl-val">{display}</span>
       </div>
       <input
         type="range"

@@ -6,13 +6,10 @@ export function OmegaBadge({ omega }: { omega: number }) {
   const rel = omega / EARTH_OMEGA
   const tone = rel > 2 ? 'hot' : rel < 0.3 ? 'cold' : 'calm'
   return (
-    <div className={`omega-badge ${tone}`}>
-      <span className="omega-dot" />
-      <span className="omega-body">
-        <span className="omega-sym">Ω</span>
-        <span className="omega-val">{rel.toFixed(1)}×</span>
-        <span className="omega-unit">Earth</span>
-      </span>
-    </div>
+    <span className={`ledger ledger-omega ${tone}`}>
+      <span className="ledger-omega-sym display">Ω</span>
+      <span className="ledger-v tnum">{rel.toFixed(1)}×</span>
+      <span className="ledger-k">Earth</span>
+    </span>
   )
 }

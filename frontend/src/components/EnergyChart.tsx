@@ -50,11 +50,11 @@ export function EnergyChart({
       <div className="spark-legend">
         <span>
           <i className="dot ek" />
-          E_k <b>{fmt(E_k[cur] ?? 0)}</b>
+          <em>kinetic</em> <b className="tnum">{fmt(E_k[cur] ?? 0)}</b>
         </span>
         <span>
           <i className="dot ep" />
-          E_p <b>{fmt(E_p[cur] ?? 0)}</b>
+          <em>potential</em> <b className="tnum">{fmt(E_p[cur] ?? 0)}</b>
         </span>
       </div>
 
